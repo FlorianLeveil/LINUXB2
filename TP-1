@@ -1,0 +1,39 @@
+Vagrant.configure(2) do |config|
+	config.vm.box = "debian/stretch64"
+
+	config.vm.provision "shell", inline: <<-SHELL
+		apt-get update -y
+		apt-get install php-geshi -y
+		cd /tmp
+		wget https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz
+		tar -xvf dokuwiki-stable.tgz
+		rm /var/www/html/index.html
+		cp -r dokuwiki-2018-04-22b/* /var/www/html/
+		chmod -R www-data /var/www/html/
+ 	SHELL
+
+ 	config.vm.define "master" do |master|
+		master.vm.box= "debian/stretch64"
+		master.vm.network "private_network", ip: "192.168.45.11"
+		master.vm.hostname = "master"
+	end
+  
+	config.vm.define "backup" do |slave|
+		slave.vm.box = "debian/stretch64"
+		slave.vm.network "private_network", ip: "192.168.45.12"
+		slave.vm.hostname = "backup"
+	end
+
+	config.ssh.insert_key = false
+	config.ssh.private_key_path = ["Keys/id_rsa", "~/.vagrant.d/insecure_private_key"]
+ 	config.vm.provision "file", source: "Keys/id_rsa", destination: "~/.ssh/id_rsa"
+	config.vm.provision "file", source: "Keys/id_rsa.pub", destination: "~/.ssh/authorized_keys"
+	config.vm.provision "file", source: "Keys/id_rsa.pub", destination: "~/.ssh/id_rsa.pub"
+
+	config.vm.provision "shell", inline: <<-SHELL
+		chmod 600 ~/.ssh/authorized_keys && chmod 700 ~/.ssh/ && chmod 600 ~/.ssh/*
+		ssh-keyscan 192.168.45.12 >> ~/.ssh/known_hosts
+		ssh-keyscan 192.168.45.11 >> ~/.ssh/known_hosts
+	SHELL
+ 
+end
